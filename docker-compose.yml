@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  mycorrhizae-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mycorrhizae-api
+    ports:
+      - "8002:8002"
+    environment:
+      - MYCORRHIZAE_DATABASE_URL=postgresql://mindex:mindex@mindex-postgres-data:5432/mindex
+      - MYCORRHIZAE_REDIS_URL=redis://redis:6379
+      - MYCORRHIZAE_HOST=0.0.0.0
+      - MYCORRHIZAE_PORT=8002
+    networks:
+      - mycorrhizae-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: mycorrhizae-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - mycorrhizae-net
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+networks:
+  mycorrhizae-net:
+    driver: bridge
+    external: false
+
+volumes:
+  redis-data:
