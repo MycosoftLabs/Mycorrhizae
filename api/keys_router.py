@@ -58,6 +58,18 @@ class CreateKeyResponse(BaseModel):
     message: str = "Store this key securely - it will not be shown again"
 
 
+class BootstrapAdminKeyRequest(BaseModel):
+    """
+    Request to mint the FIRST admin key.
+
+    This is intentionally narrow to avoid creating arbitrary keys without an existing admin key.
+    """
+    name: str = Field(default="bootstrap-admin", min_length=1, max_length=100)
+    description: Optional[str] = None
+    rate_limit_per_minute: int = Field(default=600, ge=1, le=10000)
+    rate_limit_per_day: int = Field(default=50000, ge=1, le=1000000)
+
+
 class ValidateKeyRequest(BaseModel):
     """Request to validate an API key."""
     key: str
@@ -117,6 +129,76 @@ async def validate_admin_key(
 
 
 # ==================== Endpoints ====================
+
+@router.post("/bootstrap", response_model=CreateKeyResponse)
+async def bootstrap_first_admin_key(
+    request: BootstrapAdminKeyRequest,
+    x_bootstrap_token: str = Header(..., alias="X-Mycorrhizae-Bootstrap-Token"),
+    key_svc: KeyServiceManager = Depends(get_key_service_dep),
+):
+    """
+    Mint the FIRST admin API key (bootstrap flow).
+
+    Safety rules:
+    - Requires MYCORRHIZAE_BOOTSTRAP_TOKEN to be set in env
+    - Requires X-Mycorrhizae-Bootstrap-Token header to match
+    - Only allowed when there are zero keys in the database
+
+    After the first key exists, use the normal /api/keys endpoints with X-API-Key.
+    """
+    from api.main import settings
+
+    if not settings.bootstrap_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Bootstrap disabled: set MYCORRHIZAE_BOOTSTRAP_TOKEN and restart the service.",
+        )
+
+    if x_bootstrap_token != settings.bootstrap_token:
+        raise HTTPException(status_code=403, detail="Invalid bootstrap token")
+
+    try:
+        if await key_svc.has_any_keys():
+            raise HTTPException(status_code=409, detail="Bootstrap disabled: keys already exist")
+    except Exception as e:
+        # Common first-run failure mode: api_keys tables not created yet.
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Key store not ready (missing tables?). "
+                "Apply the MINDEX migration that creates api_keys/api_key_usage/api_key_audit, "
+                "then retry. "
+                f"Error: {type(e).__name__}"
+            ),
+        )
+
+    raw_key, api_key = await key_svc.create_key(
+        name=request.name,
+        description=request.description,
+        service=KeyService.ADMIN,
+        scopes=[
+            "admin",
+            "keys:manage",
+            "keys:create",
+            "keys:revoke",
+            "read",
+            "write",
+        ],
+        rate_limit_per_minute=request.rate_limit_per_minute,
+        rate_limit_per_day=request.rate_limit_per_day,
+        expires_in_days=None,
+        metadata={"bootstrap": True},
+    )
+
+    return CreateKeyResponse(
+        key=raw_key,
+        id=str(api_key.id),
+        key_prefix=api_key.key_prefix,
+        name=api_key.name,
+        service=api_key.service.value,
+        scopes=api_key.scopes,
+    )
+
 
 @router.post("", response_model=CreateKeyResponse)
 async def create_key(

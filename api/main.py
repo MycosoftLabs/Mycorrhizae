@@ -19,8 +19,13 @@ from services.key_service import KeyServiceManager, KeyService
 
 class Settings(BaseSettings):
     """Application settings from environment."""
-    database_url: str = "postgresql://mindex:mindex@192.168.0.187:5434/mindex"
-    redis_url: str = "redis://192.168.0.187:6379"
+    # Use env vars in real deployments; these defaults are placeholders only.
+    database_url: str = "postgresql://mindex:change-me@192.168.0.189:5432/mindex"
+    redis_url: str = "redis://192.168.0.189:6379"
+
+    # One-time bootstrap token used to mint the FIRST admin API key.
+    # Required for POST /api/keys/bootstrap.
+    bootstrap_token: Optional[str] = None
     
     # CORS
     cors_origins: str = "*"
@@ -39,6 +44,7 @@ settings = Settings()
 db_pool: Optional[asyncpg.Pool] = None
 key_service: Optional[KeyServiceManager] = None
 protocol: Optional[MycorrhizaeProtocol] = None
+redis_broker = None
 
 
 async def get_db_pool() -> asyncpg.Pool:
@@ -68,7 +74,7 @@ async def get_protocol() -> MycorrhizaeProtocol:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global db_pool, key_service, protocol
+    global db_pool, key_service, protocol, redis_broker
     
     # Startup
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting Mycorrhizae Protocol API...")
@@ -83,7 +89,11 @@ async def lifespan(app: FastAPI):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] Key service initialized")
         
         # Initialize protocol
-        protocol = MycorrhizaeProtocol(key_service=key_service)
+        from mycorrhizae.broker import RedisBroker
+        redis_broker = RedisBroker(redis_url=settings.redis_url)
+        await redis_broker.connect()
+
+        protocol = MycorrhizaeProtocol(key_service=key_service, redis_client=redis_broker)
         await protocol.start()
         print(f"[{datetime.now().strftime('%H:%M:%S')}] Protocol started")
         
@@ -97,6 +107,9 @@ async def lifespan(app: FastAPI):
     
     if protocol:
         await protocol.stop()
+
+    if redis_broker:
+        await redis_broker.disconnect()
     
     if db_pool:
         await db_pool.close()
@@ -124,10 +137,12 @@ def create_app() -> FastAPI:
     from api.keys_router import router as keys_router
     from api.channels_router import router as channels_router
     from api.stream_router import router as stream_router
+    from api.websocket_router import router as websocket_router
     
     app.include_router(keys_router, prefix="/api/keys", tags=["API Keys"])
     app.include_router(channels_router, prefix="/api/channels", tags=["Channels"])
     app.include_router(stream_router, prefix="/api/stream", tags=["Streaming"])
+    app.include_router(websocket_router, prefix="/api/ws", tags=["WebSocket"])
     
     return app
 

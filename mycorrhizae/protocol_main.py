@@ -89,19 +89,7 @@ class MycorrhizaeProtocol:
         write_scopes: Optional[List[str]] = None,
         **kwargs,
     ) -> Channel:
-        """
-        Register a new channel in the protocol.
-        
-        Args:
-            name: Channel name (e.g., "device.mycelium-001.telemetry")
-            channel_type: Type of channel
-            description: Human-readable description
-            required_scopes: Scopes needed to subscribe
-            write_scopes: Scopes needed to publish
-        
-        Returns:
-            The registered Channel object
-        """
+        """Register a new channel in the protocol."""
         return self.channel_manager.register_channel(
             name=name,
             channel_type=channel_type,
@@ -117,21 +105,7 @@ class MycorrhizaeProtocol:
         callback: SubscriptionCallback,
         api_key_id: Optional[UUID] = None,
     ) -> Subscription:
-        """
-        Subscribe to a channel or pattern.
-        
-        Patterns support wildcards:
-        - device.*.telemetry - All device telemetry
-        - device.mycelium-001.* - All channels for a device
-        
-        Args:
-            channel_pattern: Channel name or pattern
-            callback: Function to call with each message
-            api_key_id: Optional API key for audit
-        
-        Returns:
-            Subscription object
-        """
+        """Subscribe to a channel or pattern."""
         return self.channel_manager.subscribe(
             channel_pattern=channel_pattern,
             callback=callback,
@@ -147,17 +121,7 @@ class MycorrhizaeProtocol:
         message: MycorrhizaeMessage,
         api_key: Optional[str] = None,
     ) -> int:
-        """
-        Publish a message to the protocol.
-        
-        Args:
-            message: The message to publish
-            api_key: Optional API key for authentication
-        
-        Returns:
-            Number of subscribers notified
-        """
-        # Validate API key if provided
+        """Publish a message to the protocol."""
         if api_key and self.key_service:
             result = await self.key_service.validate_key(
                 raw_key=api_key,
@@ -167,10 +131,8 @@ class MycorrhizaeProtocol:
                 raise PermissionError(f"API key validation failed: {result.error}")
             message.api_key_id = result.key.id
         
-        # Ensure channel exists
         channel = self.channel_manager.get_channel(message.channel)
         if not channel:
-            # Auto-register device channels
             if message.channel.startswith("device."):
                 channel = self.register_channel(
                     name=message.channel,
@@ -180,18 +142,14 @@ class MycorrhizaeProtocol:
             else:
                 raise ValueError(f"Channel not found: {message.channel}")
         
-        # Persist to MINDEX if configured
         if channel.persist_messages and self.mindex_client:
             await self._persist_message(message)
         
-        # Publish to Redis for distribution
         if self.redis_client:
             await self._publish_redis(message)
         
-        # Notify local subscribers
         notified = self.channel_manager.publish(message)
         
-        # Call registered handlers
         for handler in self._message_handlers:
             try:
                 handler(message)
@@ -201,37 +159,50 @@ class MycorrhizaeProtocol:
         return notified
     
     async def _persist_message(self, message: MycorrhizaeMessage) -> None:
-        """Persist message to MINDEX database."""
+        """Persist message to MINDEX via HTTP API or direct DB."""
         if not self.mindex_client:
             return
-        
-        # Store in messages table
-        await self.mindex_client.execute(
-            """
-            INSERT INTO mycorrhizae_messages (
-                id, channel, timestamp, source_type, source_id,
-                device_serial, message_type, payload, api_key_id,
-                correlation_id, ttl_seconds
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            """,
-            message.id,
-            message.channel,
-            message.timestamp,
-            message.source_type.value if hasattr(message.source_type, 'value') else message.source_type,
-            message.source_id,
-            message.device_serial,
-            message.message_type.value if hasattr(message.message_type, 'value') else message.message_type,
-            message.payload,
-            message.api_key_id,
-            message.correlation_id,
-            message.ttl_seconds,
-        )
+
+        if hasattr(self.mindex_client, "persist_message"):
+            await self.mindex_client.persist_message(message)
+            return
+
+        if hasattr(self.mindex_client, "execute"):
+            await self.mindex_client.execute(
+                """
+                INSERT INTO mycorrhizae_messages (
+                    id, channel, timestamp, source_type, source_id,
+                    device_serial, message_type, payload, api_key_id,
+                    correlation_id, ttl_seconds
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                """,
+                message.id,
+                message.channel,
+                message.timestamp,
+                message.source_type.value if hasattr(message.source_type, "value") else message.source_type,
+                message.source_id,
+                message.device_serial,
+                message.message_type.value if hasattr(message.message_type, "value") else message.message_type,
+                message.payload,
+                message.api_key_id,
+                message.correlation_id,
+                message.ttl_seconds,
+            )
     
     async def _publish_redis(self, message: MycorrhizaeMessage) -> None:
         """Publish message to Redis for distributed subscribers."""
         if not self.redis_client:
             return
-        
+
+        if hasattr(self.redis_client, "publish"):
+            try:
+                from .broker import RedisBroker
+                if isinstance(self.redis_client, RedisBroker):
+                    await self.redis_client.publish(message)
+                    return
+            except Exception:
+                pass
+
         channel_key = f"mycorrhizae:{message.channel}"
         await self.redis_client.publish(channel_key, message.to_json())
     
@@ -246,18 +217,7 @@ class MycorrhizaeProtocol:
         payload: Dict[str, Any],
         message_type: MessageType = MessageType.TELEMETRY,
     ) -> MycorrhizaeMessage:
-        """
-        Helper to create a device message with proper channel naming.
-        
-        Args:
-            device_serial: Device serial number
-            channel_suffix: Channel suffix (telemetry, alerts, commands)
-            payload: Message payload
-            message_type: Type of message
-        
-        Returns:
-            Properly formatted MycorrhizaeMessage
-        """
+        """Helper to create a device message with proper channel naming."""
         return MycorrhizaeMessage(
             channel=f"device.{device_serial}.{channel_suffix}",
             source_type=SourceType.DEVICE,
@@ -301,7 +261,6 @@ class MycorrhizaeProtocol:
         return self.channel_manager.list_channels(**kwargs)
 
 
-# Global protocol instance (singleton pattern)
 _protocol_instance: Optional[MycorrhizaeProtocol] = None
 
 

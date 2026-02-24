@@ -13,6 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from mycorrhizae import MycorrhizaeProtocol, MycorrhizaeMessage
 from services.key_service import KeyServiceManager, APIKey
+from pydantic import BaseModel, Field
 
 
 router = APIRouter()
@@ -176,3 +177,52 @@ async def list_subscribable_channels(
             "system.*",
         ],
     }
+
+
+class ReplayAckRequest(BaseModel):
+    device_id: str = Field(..., min_length=1, max_length=200)
+    msg_id: str = Field(..., min_length=1, max_length=200)
+    seq: int = Field(..., ge=0)
+    accepted: bool = True
+    reason: Optional[str] = None
+
+
+@router.post("/replay/ack")
+async def ack_replay_message(
+    request: ReplayAckRequest,
+    x_api_key: str = Header(..., alias="X-API-Key"),
+    key_svc: KeyServiceManager = Depends(get_key_service_dep),
+    proto: MycorrhizaeProtocol = Depends(get_protocol_dep),
+):
+    """
+    Record a replay ACK and publish it on a per-device ack channel.
+
+    This is used by gateways/ingestors to let edge devices advance their durable
+    replay tail safely (exactly-once semantics by contract).
+    """
+    result = await key_svc.validate_key(raw_key=x_api_key, required_scopes=["write", "device:write"])
+    if not result.valid:
+        raise HTTPException(status_code=403, detail=result.error)
+
+    from mycorrhizae.envelope_contract import build_replay_ack
+    ack = build_replay_ack(
+        device_id=request.device_id,
+        msg_id=request.msg_id,
+        seq=request.seq,
+        accepted=request.accepted,
+        reason=request.reason,
+    )
+
+    # Publish ACK into the protocol fabric (can be streamed to gateways/devices).
+    msg = MycorrhizaeMessage(
+        channel=f"device.{request.device_id}.ack",
+        message_type="event",
+        source_type="system",
+        source_id="mycorrhizae",
+        payload=ack,
+        tags=["ack"],
+        ttl_seconds=3600,
+    )
+    await proto.publish(msg, api_key=x_api_key)
+
+    return ack

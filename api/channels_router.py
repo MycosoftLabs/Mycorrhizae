@@ -4,6 +4,7 @@ Channel Management Endpoints
 CRUD operations for Mycorrhizae Protocol channels.
 """
 
+import os
 from typing import List, Optional
 from uuid import UUID
 
@@ -197,6 +198,7 @@ async def publish_message(
     channel_name: str,
     request: PublishRequest,
     x_api_key: str = Header(..., alias="X-API-Key"),
+    key_svc: KeyServiceManager = Depends(get_key_service_dep),
     proto: MycorrhizaeProtocol = Depends(get_protocol_dep),
 ):
     """Publish a message to a channel."""
@@ -216,6 +218,54 @@ async def publish_message(
         priority=request.priority,
         tags=request.tags,
     )
+
+    # Optional envelope verification (local-first); can be enforced via env var.
+    if isinstance(request.payload, dict) and "hdr" in request.payload and "hash" in request.payload and "sig" in request.payload:
+        from mycorrhizae.envelope_contract import (
+            validate_envelope_structure,
+            verify_envelope_hash,
+            verify_ed25519_signature,
+        )
+
+        require_sig = os.getenv("MYCORRHIZAE_REQUIRE_DEVICE_SIGNATURE", "false").strip().lower() == "true"
+
+        v = validate_envelope_structure(request.payload)
+        if not v.valid:
+            raise HTTPException(status_code=400, detail=f"envelope_invalid:{v.reason}")
+
+        hash_ok, hash_reason = verify_envelope_hash(request.payload)
+        if not hash_ok:
+            raise HTTPException(status_code=400, detail=f"envelope_hash_invalid:{hash_reason}")
+
+        # Signature verify is optional unless enforced.
+        device_pk_b64 = await key_svc.get_device_public_key_b64(v.device_id or "")
+        sig_ok = False
+        sig_reason = "no_device_key"
+        if device_pk_b64:
+            # Recompute payload hash bytes based on declared algorithm.
+            from mycorrhizae.envelope_contract import _parse_hash  # type: ignore
+
+            payload_hash = _parse_hash(request.payload.get("hash"))
+            if payload_hash:
+                sig_ok, sig_reason = verify_ed25519_signature(
+                    str(request.payload.get("sig")),
+                    payload_hash,
+                    device_pk_b64,
+                )
+            else:
+                sig_ok, sig_reason = False, "invalid_hash_field"
+
+        if require_sig and not sig_ok:
+            raise HTTPException(status_code=403, detail=f"envelope_signature_invalid:{sig_reason}")
+
+        request.payload.setdefault("verification", {})
+        request.payload["verification"].update(
+            {
+                "hashValid": True,
+                "signatureValid": sig_ok,
+                "signatureReason": sig_reason,
+            }
+        )
     
     try:
         notified = await proto.publish(message, api_key=x_api_key)

@@ -32,6 +32,7 @@ class RedisBroker:
     
     CHANNEL_PREFIX = "mycorrhizae:"
     STREAM_PREFIX = "mycorrhizae:stream:"
+    DEDUPE_PREFIX = "mycorrhizae:dedupe:"
     
     def __init__(
         self,
@@ -89,6 +90,23 @@ class RedisBroker:
         if not self._redis:
             raise RuntimeError("Not connected to Redis")
         
+        # Dedupe device telemetry by (deviceId, seq, msgId) when present.
+        try:
+            env = message.payload if isinstance(message.payload, dict) else {}
+            hdr = env.get("hdr") if isinstance(env, dict) else None
+            if isinstance(hdr, dict) and "deviceId" in hdr and "msgId" in hdr and "seq" in env:
+                device_id = str(hdr.get("deviceId"))
+                msg_id = str(hdr.get("msgId"))
+                seq = env.get("seq")
+                if isinstance(seq, int):
+                    dedupe_key = f"{self.DEDUPE_PREFIX}{device_id}:{seq}:{msg_id}"
+                    was_set = await self._redis.set(dedupe_key, "1", ex=message.ttl_seconds, nx=True)
+                    if not was_set:
+                        return 0
+        except Exception:
+            # Dedupe must never crash publishing.
+            pass
+
         redis_channel = f"{self.CHANNEL_PREFIX}{message.channel}"
         message_json = message.to_json()
         
