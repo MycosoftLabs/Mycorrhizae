@@ -19,16 +19,16 @@ from services.key_service import KeyServiceManager, KeyService
 
 class Settings(BaseSettings):
     """Application settings from environment."""
-    # Use env vars in real deployments; these defaults are placeholders only.
-    database_url: str = "postgresql://mindex:change-me@192.168.0.189:5432/mindex"
-    redis_url: str = "redis://192.168.0.189:6379"
+    # Set via MYCORRHIZAE_DATABASE_URL and MYCORRHIZAE_REDIS_URL env vars.
+    database_url: str = "postgresql://mindex:change-me@localhost:5432/mindex"
+    redis_url: str = "redis://localhost:6379"
 
     # One-time bootstrap token used to mint the FIRST admin API key.
     # Required for POST /api/keys/bootstrap.
     bootstrap_token: Optional[str] = None
     
-    # CORS
-    cors_origins: str = "*"
+    # CORS — restrict to known Mycosoft origins; override via MYCORRHIZAE_CORS_ORIGINS env var
+    cors_origins: str = "http://localhost:3000,http://192.168.0.187:3000,http://192.168.0.188:8001,http://192.168.0.189:8000,https://sandbox.mycosoft.com,https://mycosoft.com"
     
     # Server
     host: str = "0.0.0.0"

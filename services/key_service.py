@@ -142,6 +142,16 @@ class KeyServiceManager:
     def __init__(self, db_pool: asyncpg.Pool, redis_client=None):
         self.db_pool = db_pool
         self.redis = redis_client
+
+    async def has_any_keys(self) -> bool:
+        """
+        True if the api_keys table exists and has at least one row.
+
+        Used to safely gate the "first admin key" bootstrap flow.
+        """
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT 1 FROM api_keys LIMIT 1")
+            return row is not None
     
     def _generate_raw_key(self, service: KeyService) -> str:
         """Generate a new random API key."""
@@ -525,3 +535,58 @@ class KeyServiceManager:
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch(query, *params)
             return [dict(row) for row in rows]
+
+    # =========================================================================
+    # Device signing keys (public)
+    # =========================================================================
+
+    async def get_device_public_key_b64(self, device_id: str) -> Optional[str]:
+        """
+        Fetch the device Ed25519 public key (base64) for envelope verification.
+
+        Source of truth: MINDEX telemetry.device.metadata (local-first).
+        Fallback: registry.devices.config/metadata if present.
+
+        Expected JSON key: `publicKeyB64` (base64-encoded 32-byte Ed25519 public key).
+        """
+        if not device_id:
+            return None
+
+        async with self.db_pool.acquire() as conn:
+            # Primary: telemetry.device (MINDEX)
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    COALESCE(
+                        metadata->>'publicKeyB64',
+                        metadata->>'public_key_b64'
+                    ) AS pk
+                FROM telemetry.device
+                WHERE slug = $1 OR name = $1 OR id::text = $1
+                LIMIT 1
+                """,
+                device_id,
+            )
+            if row and row.get("pk"):
+                return row["pk"]
+
+            # Fallback: registry.devices (MAS registry schema when available)
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    COALESCE(
+                        metadata->>'publicKeyB64',
+                        metadata->>'public_key_b64',
+                        config->>'publicKeyB64',
+                        config->>'public_key_b64'
+                    ) AS pk
+                FROM registry.devices
+                WHERE device_id = $1
+                LIMIT 1
+                """,
+                device_id,
+            )
+            if row and row.get("pk"):
+                return row["pk"]
+
+        return None

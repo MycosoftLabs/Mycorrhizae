@@ -1,0 +1,42 @@
+version: "3.8"
+
+# Mycorrhizae Protocol - VM 188 (MAS) deployment
+#
+# Intent:
+# - Run ONLY the Mycorrhizae API container on MAS VM (192.168.0.188)
+# - Use Postgres + Redis on MINDEX VM (192.168.0.189)
+# - No local DB/Redis containers in this compose file
+#
+# Usage (on VM 188):
+#   cp .env.example .env
+#   # edit .env with real values
+#   docker compose -f docker-compose.vm188.yml --env-file .env up -d --build
+
+services:
+  mycorrhizae-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mycorrhizae-api
+    ports:
+      - "8002:8002"
+    environment:
+      MYCORRHIZAE_HOST: "0.0.0.0"
+      MYCORRHIZAE_PORT: "8002"
+      # Point these at MINDEX VM services (Postgres + Redis)
+      MYCORRHIZAE_DATABASE_URL: ${MYCORRHIZAE_DATABASE_URL}
+      MYCORRHIZAE_REDIS_URL: ${MYCORRHIZAE_REDIS_URL}
+      # Optional: one-time bootstrap token for minting the first admin key.
+      MYCORRHIZAE_BOOTSTRAP_TOKEN: ${MYCORRHIZAE_BOOTSTRAP_TOKEN:-}
+      # Optional: enforce device signatures (0/1 or false/true accepted).
+      MYCORRHIZAE_REQUIRE_DEVICE_SIGNATURE: ${MYCORRHIZAE_REQUIRE_DEVICE_SIGNATURE:-0}
+      # CORS
+      MYCORRHIZAE_CORS_ORIGINS: ${MYCORRHIZAE_CORS_ORIGINS:-*}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
