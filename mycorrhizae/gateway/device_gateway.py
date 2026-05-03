@@ -74,6 +74,20 @@ class DeviceGateway:
             channel = f"device.{serial}.event"
         elif frame.header.msg_type == MDPMessageType.ACK:
             channel = f"device.{serial}.ack"
+        elif frame.header.msg_type == MDPMessageType.ACOUSTIC_RAW:
+            channel = f"device.{serial}.maritime.acoustic_raw"
+        elif frame.header.msg_type == MDPMessageType.ACOUSTIC_FINGERPRINT:
+            channel = f"device.{serial}.maritime.acoustic_fingerprint"
+        elif frame.header.msg_type == MDPMessageType.MAGNETIC_ANOMALY:
+            channel = f"device.{serial}.maritime.magnetic_anomaly"
+        elif frame.header.msg_type == MDPMessageType.OCEAN_ENVIRONMENT:
+            channel = f"device.{serial}.maritime.ocean_environment"
+        elif frame.header.msg_type == MDPMessageType.TACTICAL_ASSESSMENT:
+            channel = f"device.{serial}.maritime.tactical_assessment"
+        elif frame.header.msg_type == MDPMessageType.ZEETA_BRIDGE:
+            channel = f"device.{serial}.maritime.zeeta_bridge"
+        elif int(frame.header.msg_type) == 0x0B:
+            channel = f"device.{serial}.emissions"
 
         msg = MycorrhizaeMessage(
             channel=channel,
@@ -92,6 +106,7 @@ class DeviceGateway:
                 "pack": payload,
                 "protocol": "mdp_v1",
                 "msg_type": int(frame.header.msg_type),
+                "maritime": int(frame.header.msg_type) >= 0x20,
             },
             tags=["mdp", "device"],
         )
@@ -113,6 +128,8 @@ class DeviceGateway:
             channel = f"device.{serial}.command"
         elif frame.header.payload_type == 0x03:
             channel = f"device.{serial}.ack"
+        elif int(frame.header.payload_type) == 0x0B:
+            channel = f"device.{serial}.emissions"
 
         msg = MycorrhizaeMessage(
             channel=channel,

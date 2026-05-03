@@ -59,6 +59,7 @@ Same as MDP v1: `[code byte][COBS data][0x00]`.
 | 0x03  | ACK       | Acknowledgment |
 | 0x05  | EVENT     | Event |
 | 0x06  | HELLO     | Handshake |
+| 0x0B  | EMISSIONS | Regional/Global Emissions Data |
 
 ## Flags (MMPFlags)
 

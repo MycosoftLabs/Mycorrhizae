@@ -55,6 +55,7 @@ The raw frame is COBS-encoded. Format: `[code byte][COBS data][0x00]` (trailing 
 | 0x07  | WIFISENSE          | WiFi sensing data |
 | 0x08  | DRONE_TELEMETRY    | Drone telemetry |
 | 0x09  | DRONE_MISSION_STATUS | Drone mission status |
+| 0x0B  | EMISSIONS          | Global/Regional emissions tracking (CO2, CH4, Vessels) |
 
 ## Endpoints (MDPEndpoint)
 
