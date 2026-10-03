@@ -25,6 +25,7 @@ services:
       MYCORRHIZAE_PORT: "8002"
       # Point these at MINDEX VM services (Postgres + Redis)
       MYCORRHIZAE_DATABASE_URL: ${MYCORRHIZAE_DATABASE_URL}
+      MYCORRHIZAE_DB_SCHEMA: ${MYCORRHIZAE_DB_SCHEMA:-mycorrhizae}
       MYCORRHIZAE_REDIS_URL: ${MYCORRHIZAE_REDIS_URL}
       # Optional: one-time bootstrap token for minting the first admin key.
       MYCORRHIZAE_BOOTSTRAP_TOKEN: ${MYCORRHIZAE_BOOTSTRAP_TOKEN:-}

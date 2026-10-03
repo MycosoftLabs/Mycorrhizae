@@ -4,6 +4,7 @@ Mycorrhizae Protocol FastAPI Application
 Main API server for the Mycorrhizae Protocol.
 """
 
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
@@ -22,6 +23,11 @@ class Settings(BaseSettings):
     # Set via MYCORRHIZAE_DATABASE_URL and MYCORRHIZAE_REDIS_URL env vars.
     database_url: str = "postgresql://mindex:change-me@localhost:5432/mindex"
     redis_url: str = "redis://localhost:6379"
+
+    # Schema holding api_keys / api_key_usage / api_key_audit
+    # (migrations/001_api_keys_schema_OCT03_2026.sql). Must not be `mycosoft`:
+    # MAS owns a different mycosoft.api_keys table in the same database.
+    db_schema: str = "mycorrhizae"
 
     # One-time bootstrap token used to mint the FIRST admin API key.
     # Required for POST /api/keys/bootstrap.
@@ -45,6 +51,13 @@ db_pool: Optional[asyncpg.Pool] = None
 key_service: Optional[KeyServiceManager] = None
 protocol: Optional[MycorrhizaeProtocol] = None
 redis_broker = None
+
+
+async def _init_db_connection(conn: asyncpg.Connection) -> None:
+    for pg_type in ("json", "jsonb"):
+        await conn.set_type_codec(
+            pg_type, encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+        )
 
 
 async def get_db_pool() -> asyncpg.Pool:
@@ -81,7 +94,13 @@ async def lifespan(app: FastAPI):
     
     try:
         # Connect to database
-        db_pool = await asyncpg.create_pool(settings.database_url, min_size=2, max_size=10)
+        db_pool = await asyncpg.create_pool(
+            settings.database_url,
+            min_size=2,
+            max_size=10,
+            init=_init_db_connection,
+            server_settings={"search_path": f"{settings.db_schema},public"},
+        )
         print(f"[{datetime.now().strftime('%H:%M:%S')}] Connected to database")
         
         # Initialize key service
