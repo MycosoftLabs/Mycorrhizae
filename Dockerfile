@@ -23,7 +23,9 @@ RUN pip install --no-cache-dir \
     httpx>=0.26.0 \
     python-multipart>=0.0.6 \
     sse-starlette>=1.8.2 \
-    cryptography>=41.0.0
+    cryptography>=41.0.0 \
+    numpy>=1.26.0 \
+    scipy>=1.11.0
 
 # Copy application code
 COPY mycorrhizae/ ./mycorrhizae/
