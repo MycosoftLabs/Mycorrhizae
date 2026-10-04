@@ -160,13 +160,15 @@ async def bootstrap_first_admin_key(
     try:
         if await key_svc.has_any_keys():
             raise HTTPException(status_code=409, detail="Bootstrap disabled: keys already exist")
+    except HTTPException:
+        raise
     except Exception as e:
         # Common first-run failure mode: api_keys tables not created yet.
         raise HTTPException(
             status_code=503,
             detail=(
                 "Key store not ready (missing tables?). "
-                "Apply the MINDEX migration that creates api_keys/api_key_usage/api_key_audit, "
+                "Apply migrations/001_api_keys_schema_OCT03_2026.sql, "
                 "then retry. "
                 f"Error: {type(e).__name__}"
             ),
