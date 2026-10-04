@@ -142,16 +142,37 @@ alert.critical               - Critical alerts
 ## Environment Variables
 
 ```env
-# Database
-MYCORRHIZAE_DATABASE_URL=postgresql://mindex:mindex@192.168.0.187:5434/mindex
+# Database (MINDEX Postgres on 189)
+MYCORRHIZAE_DATABASE_URL=postgresql://user:password@192.168.0.189:5432/mindex
+MYCORRHIZAE_DB_SCHEMA=mycorrhizae
 
 # Redis
-MYCORRHIZAE_REDIS_URL=redis://192.168.0.187:6379
+MYCORRHIZAE_REDIS_URL=redis://192.168.0.189:6379
+
+# One-time token for POST /api/keys/bootstrap (first admin key only)
+MYCORRHIZAE_BOOTSTRAP_TOKEN=your-random-bootstrap-token
 
 # Server
 MYCORRHIZAE_HOST=0.0.0.0
 MYCORRHIZAE_PORT=8002
 ```
+
+## Database setup (API keys)
+
+The key store lives in the `mycorrhizae` schema of MINDEX Postgres. Apply the migration once (it is idempotent):
+
+```bash
+psql "$MYCORRHIZAE_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_api_keys_schema_OCT03_2026.sql
+```
+
+Do not point `MYCORRHIZAE_DB_SCHEMA` at `mycosoft`: MAS owns a different `mycosoft.api_keys` table in the same database.
+
+Key lifecycle:
+
+1. `POST /api/keys/bootstrap` with header `X-Mycorrhizae-Bootstrap-Token` mints the first admin key. It only works while the key table is empty.
+2. `POST /api/keys` (admin `X-API-Key`) issues service keys (`mas`, `mindex`, `natureos`, `mycobrain`, `mycorrhizae`, `admin`). The raw key is returned once; only its SHA-256 hash is stored.
+3. `POST /api/keys/validate` checks a key, its scopes and its rate limits.
+4. `POST /api/keys/{id}/rotate` replaces a key; `DELETE /api/keys/{id}` revokes it. Both are written to `api_key_audit`.
 
 ## Architecture
 
