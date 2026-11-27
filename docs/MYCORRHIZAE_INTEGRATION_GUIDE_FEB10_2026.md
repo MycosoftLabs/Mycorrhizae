@@ -1,3 +1,5 @@
+> **AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See [AWS_INFRA_REFERENCE.md](../AWS_INFRA_REFERENCE.md) for its replacement and disposition. Loopback development and physical-device fixtures are separate.**
+
 # Mycorrhizae Integration Guide
 
 **Date:** February 10, 2026  
@@ -58,7 +60,7 @@ MYCA agents communicate with Mycorrhizae for:
 MAS requires these environment variables:
 
 ```bash
-MYCORRHIZAE_API_URL=http://192.168.0.188:8002
+MYCORRHIZAE_API_URL=http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002
 MYCORRHIZAE_API_KEY=mcr_your_api_key_here
 ```
 
@@ -176,7 +178,7 @@ Mycorrhizae connects to MINDEX via:
 
 ```bash
 MYCORRHIZAE_DATABASE_URL=postgresql://mycosoft:password@192.168.0.189:5432/mindex
-MYCORRHIZAE_REDIS_URL=redis://192.168.0.189:6379
+MYCORRHIZAE_REDIS_URL=rediss://master.mycosoft-prod-valkey.7kzq8i.use1.cache.amazonaws.com:6379
 ```
 
 ### Querying Mycorrhizae Data from MINDEX
@@ -243,7 +245,7 @@ Devices should publish in the IoT envelope format:
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-const char* MYCORRHIZAE_URL = "http://192.168.0.188:8002";
+const char* MYCORRHIZAE_URL = "http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002";
 const char* API_KEY = "mcr_device_key_here";
 const char* DEVICE_ID = "MCB-2026-0001";
 
@@ -728,7 +730,7 @@ fruit("health_report", {
 
 ```bash
 # Create key for MAS service
-curl -X POST http://192.168.0.188:8002/api/keys \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/keys \
   -H "X-API-Key: admin-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -740,7 +742,7 @@ curl -X POST http://192.168.0.188:8002/api/keys \
   }'
 
 # Create key for device gateway
-curl -X POST http://192.168.0.188:8002/api/keys \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/keys \
   -H "X-API-Key: admin-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -752,7 +754,7 @@ curl -X POST http://192.168.0.188:8002/api/keys \
   }'
 
 # Create key for website dashboard
-curl -X POST http://192.168.0.188:8002/api/keys \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/keys \
   -H "X-API-Key: admin-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -832,7 +834,7 @@ async def publish_with_retry(
 
 ```bash
 # Basic health check
-curl http://192.168.0.188:8002/health
+curl http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/health
 
 # Expected response
 {
@@ -854,7 +856,7 @@ import asyncio
 async def check_health():
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://192.168.0.188:8002/health")
+            response = await client.get("http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/health")
             data = response.json()
             
             if data["status"] == "healthy":

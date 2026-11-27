@@ -1,3 +1,5 @@
+> **AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See [AWS_INFRA_REFERENCE.md](../AWS_INFRA_REFERENCE.md) for its replacement and disposition. Loopback development and physical-device fixtures are separate.**
+
 # Mycorrhizae Protocol Overview
 
 **Date:** February 10, 2026  
@@ -384,7 +386,7 @@ services:
       - "8002:8002"
     environment:
       MYCORRHIZAE_DATABASE_URL: postgresql://mycosoft:***@192.168.0.189:5432/mindex
-      MYCORRHIZAE_REDIS_URL: redis://192.168.0.189:6379
+      MYCORRHIZAE_REDIS_URL: rediss://master.mycosoft-prod-valkey.7kzq8i.use1.cache.amazonaws.com:6379
       MYCORRHIZAE_HOST: 0.0.0.0
       MYCORRHIZAE_PORT: 8002
     restart: unless-stopped
@@ -402,7 +404,7 @@ services:
 ### Health Check
 
 ```bash
-curl http://192.168.0.188:8002/health
+curl http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/health
 ```
 
 Response:
@@ -417,7 +419,7 @@ Response:
 
 ### API Documentation
 
-OpenAPI docs available at: http://192.168.0.188:8002/docs
+OpenAPI docs available at: http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/docs
 
 ---
 

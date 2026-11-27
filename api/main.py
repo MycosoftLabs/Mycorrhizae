@@ -1,3 +1,4 @@
+# AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See AWS_INFRA_REFERENCE.md for its replacement and disposition. Loopback development and physical-device fixtures are separate.
 """
 Mycorrhizae Protocol FastAPI Application
 
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
     bootstrap_token: Optional[str] = None
     
     # CORS — restrict to known Mycosoft origins; override via MYCORRHIZAE_CORS_ORIGINS env var
-    cors_origins: str = "http://localhost:3000,http://192.168.0.187:3000,http://192.168.0.188:8001,http://192.168.0.189:8000,https://sandbox.mycosoft.com,https://mycosoft.com"
+    cors_origins: str = "http://localhost:3000,https://sandbox.mycosoft.com,https://mycosoft.com"
     
     # Server
     host: str = "0.0.0.0"

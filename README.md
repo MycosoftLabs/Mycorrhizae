@@ -1,3 +1,5 @@
+> **AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See [AWS_INFRA_REFERENCE.md](AWS_INFRA_REFERENCE.md) for its replacement and disposition. Loopback development and physical-device fixtures are separate.**
+
 # Mycorrhizae Protocol
 
 **Data Protocol for Nature** - A pub/sub messaging protocol for routing biological sensor data through the Mycosoft ecosystem.
@@ -147,7 +149,7 @@ MYCORRHIZAE_DATABASE_URL=postgresql://user:password@192.168.0.189:5432/mindex
 MYCORRHIZAE_DB_SCHEMA=mycorrhizae
 
 # Redis
-MYCORRHIZAE_REDIS_URL=redis://192.168.0.189:6379
+MYCORRHIZAE_REDIS_URL=rediss://master.mycosoft-prod-valkey.7kzq8i.use1.cache.amazonaws.com:6379
 
 # One-time token for POST /api/keys/bootstrap (first admin key only)
 MYCORRHIZAE_BOOTSTRAP_TOKEN=your-random-bootstrap-token
