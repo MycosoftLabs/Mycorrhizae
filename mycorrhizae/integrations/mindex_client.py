@@ -1,3 +1,4 @@
+# AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See AWS_INFRA_REFERENCE.md for its replacement and disposition. Loopback development and physical-device fixtures are separate.
 """
 MINDEX Client - persists Mycorrhizae messages to MINDEX API.
 
@@ -85,7 +86,7 @@ class MindexClient:
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ):
-        self.base_url = (base_url or os.environ.get("MINDEX_API_URL", "http://192.168.0.189:8000")).rstrip("/")
+        self.base_url = (base_url or os.environ.get("MINDEX_API_URL", "http://mindex-internal.mycosoft.com:8000")).rstrip("/")
         self.api_key = api_key or os.environ.get("MINDEX_API_KEY", "")
 
     async def persist_message(self, message) -> bool:

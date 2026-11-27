@@ -1,3 +1,5 @@
+> **AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See [AWS_INFRA_REFERENCE.md](../AWS_INFRA_REFERENCE.md) for its replacement and disposition. Loopback development and physical-device fixtures are separate.**
+
 # Fungal Computer Interface (FCI)
 
 **Date:** February 10, 2026  
@@ -293,7 +295,7 @@ fruit("fci_reading", {
 
 Adafruit_ADS1115 ads;
 
-const char* MYCORRHIZAE_URL = "http://192.168.0.188:8002";
+const char* MYCORRHIZAE_URL = "http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002";
 const char* API_KEY = "mcr_device_key";
 const char* DEVICE_ID = "FCI-001";
 

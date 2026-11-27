@@ -1,9 +1,11 @@
+> **AWS topology correction 2026-11-27: production is AWS-only; this file's legacy on-prem references are not deployment authority. See [AWS_INFRA_REFERENCE.md](../AWS_INFRA_REFERENCE.md) for its replacement and disposition. Loopback development and physical-device fixtures are separate.**
+
 # Mycorrhizae Protocol API Reference
 
 **Date:** February 10, 2026  
 **Version:** 1.0.0  
-**Base URL:** `http://192.168.0.188:8002`  
-**OpenAPI Docs:** `http://192.168.0.188:8002/docs`
+**Base URL:** `http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002`  
+**OpenAPI Docs:** `http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/docs`
 
 ---
 
@@ -12,7 +14,7 @@
 All endpoints (except `/health` and bootstrap) require an API key in the `X-API-Key` header:
 
 ```bash
-curl -H "X-API-Key: your-api-key" http://192.168.0.188:8002/api/channels
+curl -H "X-API-Key: your-api-key" http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/channels
 ```
 
 ### API Key Scopes
@@ -49,7 +51,7 @@ Health check endpoint (no authentication required).
 
 **Example:**
 ```bash
-curl http://192.168.0.188:8002/health
+curl http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/health
 ```
 
 ---
@@ -138,7 +140,7 @@ Create the first admin API key (bootstrap flow).
 
 **Example:**
 ```bash
-curl -X POST http://192.168.0.188:8002/api/keys/bootstrap \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/keys/bootstrap \
   -H "Content-Type: application/json" \
   -H "X-Mycorrhizae-Bootstrap-Token: your-bootstrap-token" \
   -d '{"name": "bootstrap-admin"}'
@@ -184,7 +186,7 @@ Create a new API key (requires admin).
 
 **Example:**
 ```bash
-curl -X POST http://192.168.0.188:8002/api/keys \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/keys \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-admin-key" \
   -d '{
@@ -380,7 +382,7 @@ List all channels.
 **Example:**
 ```bash
 curl -H "X-API-Key: your-key" \
-  "http://192.168.0.188:8002/api/channels?type=device&prefix=device.mycelium"
+  "http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/channels?type=device&prefix=device.mycelium"
 ```
 
 ---
@@ -465,7 +467,7 @@ Publish a message to a channel.
 
 **Example:**
 ```bash
-curl -X POST http://192.168.0.188:8002/api/channels/device.mycelium-001.telemetry/publish \
+curl -X POST http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/channels/device.mycelium-001.telemetry/publish \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-key" \
   -d '{
@@ -521,13 +523,13 @@ Subscribe to a channel via SSE (Server-Sent Events).
 **Example (curl):**
 ```bash
 curl -N -H "X-API-Key: your-key" \
-  "http://192.168.0.188:8002/api/stream/subscribe?channel=device.*.telemetry"
+  "http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/stream/subscribe?channel=device.*.telemetry"
 ```
 
 **Example (JavaScript):**
 ```javascript
 const eventSource = new EventSource(
-  'http://192.168.0.188:8002/api/stream/subscribe?channel=device.*.telemetry',
+  'http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/stream/subscribe?channel=device.*.telemetry',
   { headers: { 'X-API-Key': 'your-key' } }
 );
 
@@ -546,7 +548,7 @@ eventSource.addEventListener('message', (e) => {
 import requests
 
 response = requests.get(
-    "http://192.168.0.188:8002/api/stream/subscribe",
+    "http://internal-mycosoft-core-int-21300503.us-east-1.elb.amazonaws.com:8002/api/stream/subscribe",
     params={"channel": "device.*.telemetry"},
     headers={"X-API-Key": "your-key"},
     stream=True,
